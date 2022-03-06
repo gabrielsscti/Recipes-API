@@ -227,3 +227,34 @@ func (handler *RecipesHandler) DeleteRecipeHandler(c *gin.Context) {
 		"message": returnMessage,
 	})
 }
+
+// swagger:operation GET /recipes/:id recipes getRecipe
+// Returns a recipe by its ID
+// ---
+// produces:
+// - application/json
+// responses:
+//     '200':
+//         description: Successful operation
+func (handler *RecipesHandler) GetRecipeHandler(c *gin.Context) {
+	id := c.Param("id")
+
+	objectId, _ := primitive.ObjectIDFromHex(id)
+	findResult := handler.collection.FindOne(handler.ctx, bson.M{"_id": objectId})
+	findError := findResult.Err()
+
+	if findError == mongo.ErrNoDocuments {
+		fmt.Println(findResult.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No match was found for ID " + id})
+		return
+	} else if findError != nil {
+		fmt.Println(findResult.Err())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": findError.Error()})
+		return
+	}
+
+	var recipe models.Recipe
+	findResult.Decode(&recipe)
+	c.JSON(http.StatusOK, recipe)
+
+}
