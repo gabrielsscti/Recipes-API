@@ -35,6 +35,16 @@ func NewAuthHandler(ctx context.Context, collection *mongo.Collection) *AuthHand
 	}
 }
 
+// swagger:operation POST /signin auth signIn
+// Login with username and password
+// ---
+// produces:
+// - application/json
+// responses:
+//     '200':
+//         description: Successful operation
+//     '401':
+//         description: Invalid credentials
 func (handler *AuthHandler) SignInHandler(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
@@ -95,6 +105,16 @@ func (handler *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// swagger:operation POST /refresh auth refresh
+// Refresh token
+// ---
+// produces:
+// - application/json
+// responses:
+//     '200':
+//         description: Successful operation
+//     '401':
+//         description: Invalid credentials
 func (handler *AuthHandler) RefreshHandler(c *gin.Context) {
 	tokenValue := c.GetHeader("Authorization")
 	claims := &Claims{}
@@ -131,4 +151,71 @@ func (handler *AuthHandler) RefreshHandler(c *gin.Context) {
 		Expires: expirationTime,
 	}
 	c.JSON(http.StatusOK, jwtOutput)
+}
+
+// swagger:operation POST /signup auth signup
+// Signs up an user
+// ---
+// produces:
+// - application/json
+// responses:
+//     '200':
+//         description: Successful operation
+//     '400':
+//         description: User already exists
+//     '500':
+//         description: Internal error
+func (handler *AuthHandler) SignUpHandler(c *gin.Context) {
+	var user models.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	cur := handler.collection.FindOne(handler.ctx, bson.M{
+		"username": user.Username,
+	})
+
+	if cur.Err() != mongo.ErrNoDocuments {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already exists"})
+		return
+	}
+
+	h := sha256.New()
+	user.Password = string(h.Sum([]byte(user.Password)))
+
+	_, err := handler.collection.InsertOne(handler.ctx, user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+// swagger:operation GET /user/:username auth getUser
+// Gets an user
+// ---
+// produces:
+// - application/json
+// responses:
+//     '200':
+//         description: Successful operation
+//     '404':
+//         description: User not found
+func (handler *AuthHandler) GetUserHandler(c *gin.Context) {
+	username := c.Param("username")
+
+	findResult := handler.collection.FindOne(c, bson.M{
+		"username": username,
+	})
+
+	if findResult.Err() == mongo.ErrNoDocuments {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found!"})
+		return
+	}
+
+	var user models.User
+	findResult.Decode(&user)
+	c.JSON(http.StatusOK, user)
 }

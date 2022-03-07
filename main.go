@@ -7,6 +7,11 @@
 //	BasePath: /
 //	Version: 1.0.0
 //	Contact: Gabriel Sousa <gabrielssc.ti@gmail.com> https://github.com/gabrielsscti
+//  SecurityDefinitions:
+//  api_key:
+//    type : apiKey
+//    name : Authorization
+//    in : header
 //
 //	Consumes:
 //	- application/json
@@ -71,6 +76,7 @@ func main() {
 
 	router.GET("/recipes", recipesHandler.ListRecipesHandler)
 	router.POST("/signin", authHandler.SignInHandler)
+	router.POST("/signup", authHandler.SignUpHandler)
 	router.POST("/refresh", authHandler.RefreshHandler)
 	authorized := router.Group("/")
 	authorized.Use(authHandler.AuthMiddleware())
@@ -80,6 +86,7 @@ func main() {
 		authorized.GET("/recipes/:id", recipesHandler.GetRecipeHandler)
 		authorized.PUT("/recipes/:id", recipesHandler.UpdateRecipeHandler)
 		authorized.DELETE("/recipes/:id", recipesHandler.DeleteRecipeHandler)
+		authorized.GET("/user/:username", authHandler.GetUserHandler)
 	}
 	router.Run()
 }
